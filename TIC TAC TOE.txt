@@ -1,0 +1,221 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+#define SIZE 3
+
+void initializeBoard(char board[SIZE][SIZE]);
+void printBoard(char board[SIZE][SIZE]);
+int checkWin(char board[SIZE][SIZE], char player);
+int checkDraw(char board[SIZE][SIZE]);
+void makeMove(char board[SIZE][SIZE], int row, int col, char player);
+void computerMove(char board[SIZE][SIZE]);
+int minimax(char board[SIZE][SIZE], int depth, int isMaximizing);
+int findBestMove(char board[SIZE][SIZE]);
+void undoMove(char board[SIZE][SIZE], int row, int col);
+
+int main() {
+    char board[SIZE][SIZE];
+    initializeBoard(board);
+
+    char currentPlayer;
+    int row, col;
+    int mode;
+
+    // Ask for game mode
+    printf("Choose game mode:\n1. Two Players\n2. Player vs Computer\n");
+    scanf("%d", &mode);
+
+    // Set the first player
+    currentPlayer = 'X'; // Player is 'X'
+
+    while (1) {
+        printBoard(board);
+
+        // Player's turn
+        if (mode == 1 || (mode == 2 && currentPlayer == 'X')) {
+            printf("Player %c, enter your move (row and column): ", currentPlayer);
+            // Read input as a string to handle both formats
+            char input[10];
+            scanf("%s", input);
+
+            // Parse input
+            if (sscanf(input, "%d,%d", &row, &col) != 2 && sscanf(input, "%d %d", &row, &col) != 2) {
+                printf("Invalid input format. Please use 'row,column' or 'row column'.\n");
+                continue;
+            }
+
+            // Adjust for 1-based indexing
+            row -= 1; 
+            col -= 1;
+
+            // Check for valid input
+            if (row < 0 || row >= SIZE || col < 0 || col >= SIZE || board[row][col] != ' ') {
+                printf("Invalid move. Try again.\n");
+                continue;
+            }
+
+            makeMove(board, row, col, currentPlayer);
+        } else if (mode == 2 && currentPlayer == 'O') {
+            printf("Computer's turn...\n");
+            computerMove(board);
+        }
+
+        if (checkWin(board, currentPlayer)) {
+            printBoard(board);
+            printf("Player %c wins!\n", currentPlayer);
+            break;
+        }
+
+        if (checkDraw(board)) {
+            printBoard(board);
+            printf("The game is a draw!\n");
+            break;
+        }
+
+        // Switch players
+        currentPlayer = (currentPlayer == 'X') ? 'O' : 'X';
+    }
+
+    return 0;
+}
+
+// Function to initialize the game board
+void initializeBoard(char board[SIZE][SIZE]) {
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            board[i][j] = ' ';
+        }
+    }
+}
+
+// Function to print the game board without row/column labels
+void printBoard(char board[SIZE][SIZE]) {
+    printf("\n");
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            printf(" %c ", board[i][j]);
+            if (j < SIZE - 1) printf("|"); // Print vertical separators
+        }
+        printf("\n");
+
+        // Print a horizontal line after each row except the last one
+        if (i < SIZE - 1) {
+            printf("-----------\n");
+        }
+    }
+    printf("\n");
+}
+
+// Function to check if a player has won
+int checkWin(char board[SIZE][SIZE], char player) {
+    // Check rows and columns
+    for (int i = 0; i < SIZE; i++) {
+        if ((board[i][0] == player && board[i][1] == player && board[i][2] == player) ||
+            (board[0][i] == player && board[1][i] == player && board[2][i] == player)) {
+            return 1;
+        }
+    }
+
+    // Check diagonals
+    if ((board[0][0] == player && board[1][1] == player && board[2][2] == player) ||
+        (board[0][2] == player && board[1][1] == player && board[2][0] == player)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+// Function to check for a draw
+int checkDraw(char board[SIZE][SIZE]) {
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            if (board[i][j] == ' ') {
+                return 0; // There are still empty spaces
+            }
+        }
+    }
+    return 1; // No empty spaces left
+}
+
+// Function to make a move on the board
+void makeMove(char board[SIZE][SIZE], int row, int col, char player) {
+    board[row][col] = player;
+}
+
+// Function for the computer to make a move using Minimax algorithm
+void computerMove(char board[SIZE][SIZE]) {
+    int bestMove = findBestMove(board);
+    
+    int row = bestMove / SIZE;
+    int col = bestMove % SIZE;
+
+    makeMove(board, row, col, 'O'); // Computer is 'O'
+}
+
+// Minimax algorithm implementation
+int minimax(char board[SIZE][SIZE], int depth, int isMaximizing) {
+    if (checkWin(board, 'O')) return 10 - depth;   // Computer wins
+    if (checkWin(board, 'X')) return depth - 10;   // Player wins
+    if (checkDraw(board)) return 0;                 // Draw
+
+    if (isMaximizing) { // Computer's turn
+        int bestScore = -1000;
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                if (board[i][j] == ' ') { // Check for empty space
+                    makeMove(board, i, j, 'O'); // Try this move
+                    int score = minimax(board, depth + 1, 0); // Recurse
+                    undoMove(board, i, j); // Undo move
+
+                    bestScore = score > bestScore ? score : bestScore;
+                }
+            }
+        }
+        return bestScore;
+    } else { // Player's turn
+        int bestScore = 1000;
+        for (int i = 0; i < SIZE; i++) {
+            for (int j = 0; j < SIZE; j++) {
+                if (board[i][j] == ' ') { // Check for empty space
+                    makeMove(board, i, j, 'X'); // Try this move
+                    int score = minimax(board, depth + 1, 1); // Recurse
+                    undoMove(board, i, j); // Undo move
+
+                    bestScore = score < bestScore ? score : bestScore;
+                }
+            }
+        }
+        return bestScore;
+    }
+}
+
+// Function to find the best move for the computer using Minimax
+int findBestMove(char board[SIZE][SIZE]) {
+    int bestScore = -1000;
+    int moveIndex = -1;
+
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            if (board[i][j] == ' ') { // Check for empty space
+                makeMove(board, i, j, 'O'); // Try this move
+
+                int score = minimax(board, 0, 0); // Get score from Minimax
+
+                undoMove(board, i, j); // Undo move
+
+                if (score > bestScore) { 
+                    bestScore = score;
+                    moveIndex = i * SIZE + j; // Store index of the move
+                }
+            }
+        }
+    }
+
+    return moveIndex;
+}
+
+// Function to undo a move on the board
+void undoMove(char board[SIZE][SIZE], int row, int col) {
+    board[row][col] = ' '; 
+}
